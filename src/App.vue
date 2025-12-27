@@ -1,30 +1,66 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+import { KanbanBoard } from './lib'
+
+const columns = [
+  {
+    id: 'backlog',
+    title: 'Backlog',
+    items: [
+      { id: 'task-1', title: 'Design drag-and-drop flow' },
+      { id: 'task-2', title: 'Card editing UI', description: 'Explore modal options' },
+    ],
+  },
+  {
+    id: 'progress',
+    title: 'In Progress',
+    items: [{ id: 'task-3', title: 'Vue 3 testing foundation' }],
+  },
+  {
+    id: 'done',
+    title: 'Done',
+    items: [{ id: 'task-4', title: 'Initial design direction' }],
+  },
+]
 </script>
 
 <template>
-  <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
-  </div>
-  <HelloWorld msg="Vite + Vue" />
+  <main class="demo">
+    <header class="demo__header">
+      <p class="demo__eyebrow">Kanvan Playground</p>
+      <h1 class="demo__title">Kanban Library for Vue</h1>
+      <p class="demo__lead">
+        Use this space to preview components while building the library.
+      </p>
+    </header>
+    <KanbanBoard :columns="columns" />
+  </main>
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+.demo {
+  display: grid;
+  gap: 24px;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+
+.demo__header {
+  display: grid;
+  gap: 8px;
 }
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+
+.demo__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.demo__title {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+}
+
+.demo__lead {
+  margin: 0;
+  color: #4b4b4b;
 }
 </style>

@@ -9,6 +9,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
     "lib": ["ESNext", "DOM"],
     "skipLibCheck": true,
     "noEmit": true

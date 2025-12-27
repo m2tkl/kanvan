@@ -1,6 +1,14 @@
-# Vue 3 + TypeScript + Vite
+# Kanvan
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Workspace for building a Vue.js Kanban library. `src/lib` contains the library, and `src/App.vue` is the Playground for manual verification.
+
+## Scripts
+
+- `npm run dev`: run the Playground
+- `npm run test`: run tests
+- `npm run test:watch`: run tests in watch mode
+- `npm run test:coverage`: collect coverage
+- `npm run build`: build types and the library
 
 ## Recommended IDE Setup
 
