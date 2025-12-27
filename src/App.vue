@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { KanbanBoard } from './lib'
 
-const columns = [
+const columns = ref([
   {
     id: 'backlog',
     title: 'Backlog',
@@ -20,7 +21,7 @@ const columns = [
     title: 'Done',
     items: [{ id: 'task-4', title: 'Initial design direction' }],
   },
-]
+])
 </script>
 
 <template>
@@ -32,7 +33,7 @@ const columns = [
         Use this space to preview components while building the library.
       </p>
     </header>
-    <KanbanBoard :columns="columns" />
+    <KanbanBoard v-model="columns" :columns="columns" :debug="true" />
   </main>
 </template>
 
