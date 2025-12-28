@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { KanbanColumn, KanbanItem } from '../types'
+import KanbanColumnComponent from './KanbanColumn.vue'
 
 const props = defineProps<{
   columns: KanbanColumn[]
@@ -97,7 +98,11 @@ const handleDragStart = (
   const dataTransfer = event.dataTransfer
   if (!dataTransfer) return
   dataTransfer.setData('text/plain', `${columnId}:${itemId}`)
-  dataTransfer.setDragImage(event.currentTarget as Element, 12, 12)
+  const target = event.currentTarget as HTMLElement
+  const bounds = target.getBoundingClientRect()
+  const offsetX = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left))
+  const offsetY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top))
+  dataTransfer.setDragImage(target, offsetX, offsetY)
   dataTransfer.effectAllowed = 'move'
 }
 
@@ -302,47 +307,19 @@ const handleDragEnd = () => {
 
 <template>
   <section class="kanban" data-testid="kanban-board">
-    <article
+    <KanbanColumnComponent
       v-for="column in activeColumns"
       :key="column.id"
-      class="kanban-column"
-      :data-drag-over="dragOver?.columnId === column.id"
-    >
-      <header class="kanban-column__header">
-        <h2 class="kanban-column__title">{{ column.title }}</h2>
-        <span class="kanban-column__count">{{ column.items.length }}</span>
-      </header>
-      <ol
-        class="kanban-column__list"
-        :data-drag-over="dragOver?.columnId === column.id && !dragOver?.itemId"
-        @dragover="handleListDragOver(column.id, $event)"
-        @drop="handleDrop(column.id, undefined, $event)"
-      >
-        <li
-          v-for="item in column.items"
-          :key="item.id"
-          class="kanban-card"
-          :data-dragging="dragging?.itemId === item.id"
-          :data-drag-over="dragOver?.columnId === column.id && dragOver?.itemId === item.id"
-          :data-drop-position="
-            dragOver?.columnId === column.id && dragOver?.itemId === item.id
-              ? dragOver?.position
-              : null
-          "
-          :data-item-id="item.id"
-          draggable="true"
-          @dragstart="handleDragStart(column.id, item.id, $event)"
-          @dragover="handleItemDragOver(column.id, item.id, $event)"
-          @drop="handleDrop(column.id, item.id, $event)"
-          @dragend="handleDragEnd"
-        >
-          <p class="kanban-card__title">{{ item.title }}</p>
-          <p v-if="item.description" class="kanban-card__description">
-            {{ item.description }}
-          </p>
-        </li>
-      </ol>
-    </article>
+      :column="column"
+      :dragging="dragging"
+      :drag-over="dragOver"
+      @list-dragover="handleListDragOver(column.id, $event)"
+      @list-drop="handleDrop(column.id, undefined, $event)"
+      @card-dragstart="handleDragStart(column.id, $event.itemId, $event.event)"
+      @card-dragover="handleItemDragOver(column.id, $event.itemId, $event.event)"
+      @card-drop="handleDrop(column.id, $event.itemId, $event.event)"
+      @card-dragend="handleDragEnd"
+    />
   </section>
 </template>
 
@@ -351,113 +328,5 @@ const handleDragEnd = () => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
-}
-
-.kanban-column {
-  background: #f7f5f0;
-  border-radius: 16px;
-  padding: 16px;
-  display: grid;
-  gap: 12px;
-  min-height: 260px;
-  box-shadow: 0 10px 20px rgba(18, 18, 18, 0.08);
-  transition: transform 120ms ease, box-shadow 120ms ease;
-}
-
-.kanban-column[data-drag-over='true'] {
-  box-shadow: 0 12px 30px rgba(18, 18, 18, 0.16);
-  transform: translateY(-2px);
-}
-
-.kanban-column__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.kanban-column__title {
-  font-size: 1.05rem;
-  margin: 0;
-}
-
-.kanban-column__count {
-  font-size: 0.9rem;
-  background: #1c1b1f;
-  color: #fff4da;
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-
-.kanban-column__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-  position: relative;
-}
-
-.kanban-column__list[data-drag-over='true'] {
-  padding-bottom: 18px;
-}
-
-.kanban-column__list[data-drag-over='true']::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 6px;
-  height: 2px;
-  border-radius: 999px;
-  background: #1c1b1f;
-}
-
-.kanban-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: inset 0 0 0 1px rgba(28, 27, 31, 0.08);
-  cursor: grab;
-  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
-  position: relative;
-}
-
-.kanban-card[data-dragging='true'] {
-  opacity: 0.4;
-  cursor: grabbing;
-}
-
-.kanban-card[data-drag-over='true'] {
-}
-
-.kanban-card[data-drop-position='before']::before,
-.kanban-card[data-drop-position='after']::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  height: 2px;
-  border-radius: 999px;
-  background: #1c1b1f;
-}
-
-.kanban-card[data-drop-position='before']::before {
-  top: -6px;
-}
-
-.kanban-card[data-drop-position='after']::after {
-  bottom: -6px;
-}
-
-.kanban-card__title {
-  margin: 0 0 4px;
-  font-weight: 600;
-}
-
-.kanban-card__description {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #4b4b4b;
 }
 </style>
