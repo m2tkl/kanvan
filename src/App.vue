@@ -9,17 +9,29 @@ const columns = ref([
     items: [
       { id: 'task-1', title: 'Design drag-and-drop flow' },
       { id: 'task-2', title: 'Card editing UI', description: 'Explore modal options' },
+      { id: 'task-5', title: 'Accessibility sweep', description: 'Review focus and aria' },
+      { id: 'task-6', title: 'Card slot API', description: 'Define slot props' },
+      { id: 'task-7', title: 'Edge case checklist' },
+      { id: 'task-8', title: 'Drag cancel UX', description: 'Decide fallback behavior' },
     ],
   },
   {
     id: 'progress',
     title: 'In Progress',
-    items: [{ id: 'task-3', title: 'Vue 3 testing foundation' }],
+    items: [
+      { id: 'task-3', title: 'Vue 3 testing foundation' },
+      { id: 'task-9', title: 'Column sizing', description: 'Lock header height' },
+      { id: 'task-10', title: 'Placeholder sync', description: 'Cross-column behavior' },
+    ],
   },
   {
     id: 'done',
     title: 'Done',
-    items: [{ id: 'task-4', title: 'Initial design direction' }],
+    items: [
+      { id: 'task-4', title: 'Initial design direction' },
+      { id: 'task-11', title: 'Drop indicator', description: 'Replaced by skeleton' },
+      { id: 'task-12', title: 'Preview cleanup' },
+    ],
   },
 ])
 </script>
