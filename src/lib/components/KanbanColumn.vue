@@ -8,6 +8,7 @@ const props = defineProps<{
   dragOver:
     | { columnId: string; itemId?: string; position?: 'before' | 'after' }
     | null
+  disableMoveTransition: boolean
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +23,8 @@ const emit = defineEmits<{
 const isColumnDragOver = () => props.dragOver?.columnId === props.column.id
 const isListDragOver = () =>
   props.dragOver?.columnId === props.column.id && !props.dragOver?.itemId
+const isPlaceholder = (item: KanbanColumn['items'][number]) =>
+  (item as { __placeholder?: boolean }).__placeholder === true
 </script>
 
 <template>
@@ -30,9 +33,16 @@ const isListDragOver = () =>
       <h2 class="kanban-column__title">{{ column.title }}</h2>
       <span class="kanban-column__count">{{ column.items.length }}</span>
     </header>
-    <ol
+    <TransitionGroup
+      tag="ol"
       class="kanban-column__list"
+      :class="{
+        'kanban-column__list--freeze': props.disableMoveTransition,
+        'kanban-column__list--lock': props.dragging?.columnId === column.id,
+      }"
+      name="kanban-card"
       :data-drag-over="isListDragOver()"
+      :data-column-id="column.id"
       @dragover="emit('list-dragover', $event)"
       @drop="emit('list-drop', $event)"
     >
@@ -41,16 +51,13 @@ const isListDragOver = () =>
         :key="item.id"
         :item="item"
         :is-dragging="dragging?.itemId === item.id"
-        :is-drag-over="isColumnDragOver() && dragOver?.itemId === item.id"
-        :drop-position="
-          isColumnDragOver() && dragOver?.itemId === item.id ? dragOver?.position ?? null : null
-        "
+        :is-placeholder="isPlaceholder(item)"
         @dragstart="emit('card-dragstart', { itemId: item.id, event: $event })"
         @dragover="emit('card-dragover', { itemId: item.id, event: $event })"
         @drop="emit('card-drop', { itemId: item.id, event: $event })"
         @dragend="emit('card-dragend')"
       />
-    </ol>
+    </TransitionGroup>
   </article>
 </template>
 
@@ -60,6 +67,7 @@ const isListDragOver = () =>
   border-radius: 16px;
   padding: 16px;
   display: grid;
+  grid-template-rows: auto 1fr;
   gap: 12px;
   min-height: 260px;
   box-shadow: 0 10px 20px rgba(18, 18, 18, 0.08);
@@ -68,7 +76,6 @@ const isListDragOver = () =>
 
 .kanban-column[data-drag-over='true'] {
   box-shadow: 0 12px 30px rgba(18, 18, 18, 0.16);
-  transform: translateY(-2px);
 }
 
 .kanban-column__header {
@@ -98,20 +105,22 @@ const isListDragOver = () =>
   display: grid;
   gap: 10px;
   position: relative;
+  min-height: 280px;
+  overflow-y: auto;
+  overflow-anchor: none;
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: max-content;
 }
 
-.kanban-column__list[data-drag-over='true'] {
-  padding-bottom: 18px;
+.kanban-column__list--lock {
+  overflow-y: hidden;
 }
+</style>
 
-.kanban-column__list[data-drag-over='true']::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 6px;
-  height: 2px;
-  border-radius: 999px;
-  background: #1c1b1f;
+<style>
+.kanban-column__list--freeze .kanban-card-move,
+.kanban-column__list--freeze .kanban-card {
+  transition: none;
 }
 </style>

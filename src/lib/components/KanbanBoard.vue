@@ -15,6 +15,8 @@ const emit = defineEmits<{
 }>()
 
 const activeColumns = computed(() => props.modelValue ?? props.columns)
+const previewColumns = ref<KanbanColumn[] | null>(null)
+const renderColumns = computed(() => previewColumns.value ?? activeColumns.value)
 
 const dragging = ref<{
   columnId: string
@@ -26,10 +28,22 @@ const dragOver = ref<{
   itemId?: string
   position?: 'before' | 'after'
 } | null>(null)
+const suppressMoveTransition = ref(false)
+const dragImageElement = ref<HTMLElement | null>(null)
+let scrollPositions: Map<string, number> | null = null
 
 const emitUpdate = (columns: KanbanColumn[]) => {
   emit('update:modelValue', columns)
   emit('update:columns', columns)
+}
+
+const disableMoveTransition = () => {
+  suppressMoveTransition.value = true
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      suppressMoveTransition.value = false
+    })
+  })
 }
 
 const log = (...args: unknown[]) => {
@@ -37,11 +51,174 @@ const log = (...args: unknown[]) => {
   console.log('[KanbanBoard]', ...args)
 }
 
+const finalizeDrag = () => {
+  if (dragImageElement.value) {
+    dragImageElement.value.remove()
+    dragImageElement.value = null
+  }
+  dragging.value = null
+  dragOver.value = null
+  clearPreview()
+  if (scrollPositions) {
+    const lists = document.querySelectorAll<HTMLElement>('.kanban-column__list')
+    lists.forEach((list) => {
+      const columnId = list.dataset.columnId
+      if (!columnId) return
+      const scrollTop = scrollPositions?.get(columnId)
+      if (scrollTop === undefined) return
+      list.scrollTop = scrollTop
+    })
+    scrollPositions = null
+  }
+}
+
+const applyDrop = (
+  columnId: string,
+  itemId: string | undefined,
+  position: 'before' | 'after' | undefined,
+) => {
+  if (!dragging.value) return
+  const isSameColumn = dragging.value.columnId === columnId
+  if (
+    itemId &&
+    itemId === dragging.value.itemId &&
+    dragging.value.columnId === columnId
+  ) {
+    finalizeDrag()
+    return
+  }
+
+  const beforeItemId = resolveBeforeItemId(columnId, itemId, position)
+  const shouldMove = willMove(
+    activeColumns.value,
+    dragging.value.columnId,
+    dragging.value.itemId,
+    columnId,
+    beforeItemId,
+  )
+  if (!shouldMove) {
+    finalizeDrag()
+    return
+  }
+  log('drop', {
+    from: dragging.value,
+    to: { columnId, beforeItemId },
+  })
+
+  const nextColumns = moveItem(
+    activeColumns.value,
+    dragging.value.columnId,
+    dragging.value.itemId,
+    columnId,
+    beforeItemId,
+  )
+  emitUpdate(nextColumns)
+  finalizeDrag()
+  if (isSameColumn) {
+    disableMoveTransition()
+  }
+}
+
+const registerGlobalDragCleanup = () => {
+  const handleDragEnd = () => {
+    window.removeEventListener('dragend', handleDragEnd, true)
+    window.removeEventListener('drop', handleDrop, true)
+    window.removeEventListener('dragover', handleDragOver, true)
+    finalizeDrag()
+  }
+  const handleDrop = (event: Event) => {
+    const target = event.target
+    if (target instanceof Element && target.closest('.kanban')) {
+      return
+    }
+    window.removeEventListener('dragend', handleDragEnd, true)
+    window.removeEventListener('drop', handleDrop, true)
+    window.removeEventListener('dragover', handleDragOver, true)
+    if (dragOver.value) {
+      applyDrop(dragOver.value.columnId, dragOver.value.itemId, dragOver.value.position)
+      return
+    }
+    finalizeDrag()
+  }
+  const handleDragOver = (event: DragEvent) => {
+    if (!dragging.value) return
+    event.preventDefault()
+  }
+  window.addEventListener('dragend', handleDragEnd, true)
+  window.addEventListener('drop', handleDrop, true)
+  window.addEventListener('dragover', handleDragOver, true)
+}
+
 const cloneColumns = (columns: KanbanColumn[]) =>
   columns.map((column) => ({
     ...column,
-    items: [...column.items],
+    items: column.items.map((item) => ({ ...item })),
   }))
+
+const markPlaceholder = (item: KanbanItem) => {
+  ;(item as KanbanItem & { __placeholder?: boolean }).__placeholder = true
+}
+
+const resolvePlaceholderItem = (columns: KanbanColumn[], itemId: string) => {
+  for (const column of columns) {
+    const item = column.items.find((entry) => entry.id === itemId)
+    if (item) return item
+  }
+  return null
+}
+
+const buildPreviewColumns = (
+  columns: KanbanColumn[],
+  draggingState: { columnId: string; itemId: string },
+  dropInfo?: { columnId: string; itemId?: string; position?: 'before' | 'after' },
+) => {
+  const nextColumns = cloneColumns(columns)
+  const origin = findItem(
+    nextColumns,
+    draggingState.columnId,
+    draggingState.itemId,
+  )
+  if (!origin) {
+    const existing = resolvePlaceholderItem(nextColumns, draggingState.itemId)
+    if (existing) {
+      markPlaceholder(existing)
+      return nextColumns
+    }
+    return columns
+  }
+
+  if (!dropInfo) {
+    return nextColumns
+  }
+
+  const destinationOriginal = columns.find((entry) => entry.id === dropInfo.columnId)
+  if (!destinationOriginal) return columns
+
+  let targetIndex = destinationOriginal.items.length
+  if (dropInfo.itemId) {
+    const index = destinationOriginal.items.findIndex(
+      (entry) => entry.id === dropInfo.itemId,
+    )
+    if (index !== -1) targetIndex = index
+  }
+
+  if (dropInfo.position === 'after') {
+    targetIndex = Math.min(targetIndex + 1, destinationOriginal.items.length)
+  }
+
+  if (origin.column.id === destinationOriginal.id && origin.index < targetIndex) {
+    targetIndex = Math.max(0, targetIndex - 1)
+  }
+
+  const destination = nextColumns.find((entry) => entry.id === dropInfo.columnId)
+  if (!destination) return columns
+
+  origin.column.items.splice(origin.index, 1)
+  targetIndex = Math.min(targetIndex, destination.items.length)
+  destination.items.splice(targetIndex, 0, origin.item)
+  markPlaceholder(origin.item)
+  return nextColumns
+}
 
 const findItem = (columns: KanbanColumn[], columnId: string, itemId: string) => {
   const column = columns.find((entry) => entry.id === columnId)
@@ -93,17 +270,31 @@ const handleDragStart = (
   event: DragEvent,
 ) => {
   dragging.value = { columnId, itemId }
-  dragOver.value = { columnId, itemId }
+  dragOver.value = null
+  clearPreview()
   log('drag:start', { columnId, itemId })
   const dataTransfer = event.dataTransfer
   if (!dataTransfer) return
+  scrollPositions = new Map<string, number>()
+  const lists = document.querySelectorAll<HTMLElement>('.kanban-column__list')
+  lists.forEach((list) => {
+    const id = list.dataset.columnId
+    if (!id) return
+    scrollPositions?.set(id, list.scrollTop)
+  })
   dataTransfer.setData('text/plain', `${columnId}:${itemId}`)
-  const target = event.currentTarget as HTMLElement
-  const bounds = target.getBoundingClientRect()
-  const offsetX = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left))
-  const offsetY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top))
-  dataTransfer.setDragImage(target, offsetX, offsetY)
+  const dragImage = document.createElement('div')
+  dragImage.style.width = '1px'
+  dragImage.style.height = '1px'
+  dragImage.style.opacity = '0'
+  dragImage.style.position = 'fixed'
+  dragImage.style.top = '-1000px'
+  dragImage.style.left = '-1000px'
+  document.body.appendChild(dragImage)
+  dragImageElement.value = dragImage
+  dataTransfer.setDragImage(dragImage, 0, 0)
   dataTransfer.effectAllowed = 'move'
+  registerGlobalDragCleanup()
 }
 
 const resolveBeforeItemId = (
@@ -147,9 +338,34 @@ const willMove = (
   return !(fromColumnId === toColumnId && originIndex === targetIndex)
 }
 
-const clearDropIndicator = () => {
-  if (dragOver.value) {
+const clearPreview = () => {
+  previewColumns.value = null
+}
+
+const updatePreview = (
+  columnId: string,
+  itemId: string | undefined,
+  position: 'before' | 'after' | undefined,
+) => {
+  if (!dragging.value) return
+  const beforeItemId = resolveBeforeItemId(columnId, itemId, position)
+  const shouldMove = willMove(
+    activeColumns.value,
+    dragging.value.columnId,
+    dragging.value.itemId,
+    columnId,
+    beforeItemId,
+  )
+  if (shouldMove) {
+    dragOver.value = { columnId, itemId, position }
+    previewColumns.value = buildPreviewColumns(
+      activeColumns.value,
+      dragging.value,
+      { columnId, itemId, position },
+    )
+  } else {
     dragOver.value = null
+    clearPreview()
   }
 }
 
@@ -174,7 +390,11 @@ const handleListDragOver = (columnId: string, event: DragEvent) => {
   if (!dragging.value) return
 
   const list = event.currentTarget as HTMLElement
-  const items = Array.from(list.querySelectorAll<HTMLElement>('[data-item-id]'))
+  const items = Array.from(list.querySelectorAll<HTMLElement>('[data-item-id]')).filter(
+    (item) =>
+      item.dataset.itemId !== dragging.value?.itemId &&
+      item.dataset.placeholder !== 'true',
+  )
   if (items.length === 0) {
     const shouldMove = willMove(
       activeColumns.value,
@@ -186,8 +406,15 @@ const handleListDragOver = (columnId: string, event: DragEvent) => {
     if (shouldMove) {
       dragOver.value = { columnId }
       log('drag:over', { columnId, position: 'end' })
-    } else {
-      clearDropIndicator()
+      previewColumns.value = buildPreviewColumns(
+        activeColumns.value,
+        dragging.value,
+        { columnId },
+      )
+    }
+    if (!shouldMove) {
+      dragOver.value = null
+      clearPreview()
     }
     return
   }
@@ -215,8 +442,10 @@ const handleListDragOver = (columnId: string, event: DragEvent) => {
     )
     if (shouldMove) {
       updateDropIndicator(columnId, best.id, best.position)
+      updatePreview(columnId, best.id, best.position)
     } else {
-      clearDropIndicator()
+      dragOver.value = null
+      clearPreview()
     }
   }
 }
@@ -226,6 +455,7 @@ const handleItemDragOver = (
   itemId: string,
   event: DragEvent,
 ) => {
+  if (dragging.value?.itemId === itemId) return
   event.preventDefault()
   event.dataTransfer && (event.dataTransfer.dropEffect = 'move')
   const target = event.currentTarget as HTMLElement
@@ -241,8 +471,10 @@ const handleItemDragOver = (
   )
   if (shouldMove) {
     updateDropIndicator(columnId, itemId, position)
+    updatePreview(columnId, itemId, position)
   } else {
-    clearDropIndicator()
+    dragOver.value = null
+    clearPreview()
   }
 }
 
@@ -254,65 +486,58 @@ const handleDrop = (
   event.preventDefault()
   if (!dragging.value) return
   const dropInfo = dragOver.value?.columnId === columnId ? dragOver.value : null
-  if (
-    dropInfo?.itemId &&
-    dropInfo.itemId === dragging.value.itemId &&
-    dragging.value.columnId === columnId
-  ) {
-    dragging.value = null
-    dragOver.value = null
-    return
-  }
-
-  const beforeItemId = resolveBeforeItemId(
+  const fallbackPosition = (() => {
+    if (!itemId) return undefined
+    const target = event.currentTarget as HTMLElement
+    const bounds = target.getBoundingClientRect()
+    return event.clientY - bounds.top > bounds.height / 2 ? 'after' : 'before'
+  })()
+  applyDrop(
     columnId,
     dropInfo?.itemId ?? itemId,
-    dropInfo?.position,
+    dropInfo?.position ?? fallbackPosition,
   )
-  const shouldMove = willMove(
-    activeColumns.value,
-    dragging.value.columnId,
-    dragging.value.itemId,
-    columnId,
-    beforeItemId,
-  )
-  if (!shouldMove) {
-    dragging.value = null
-    dragOver.value = null
-    return
-  }
-  log('drop', {
-    from: dragging.value,
-    to: { columnId, beforeItemId, dropInfo },
-  })
-
-  const nextColumns = moveItem(
-    activeColumns.value,
-    dragging.value.columnId,
-    dragging.value.itemId,
-    columnId,
-    beforeItemId,
-  )
-  emitUpdate(nextColumns)
-  dragging.value = null
-  dragOver.value = null
 }
 
 const handleDragEnd = () => {
-  dragging.value = null
-  dragOver.value = null
+  finalizeDrag()
   log('drag:end')
+}
+
+const handleBoardDrop = (event: DragEvent) => {
+  event.preventDefault()
+  if (!dragging.value) return
+  if (event.target instanceof Element && event.target.closest('.kanban-column__list')) {
+    return
+  }
+  if (dragOver.value) {
+    applyDrop(dragOver.value.columnId, dragOver.value.itemId, dragOver.value.position)
+    return
+  }
+  finalizeDrag()
+}
+
+const handleBoardDragOver = (event: DragEvent) => {
+  if (!dragging.value) return
+  event.preventDefault()
+  event.dataTransfer && (event.dataTransfer.dropEffect = 'move')
 }
 </script>
 
 <template>
-  <section class="kanban" data-testid="kanban-board">
+  <section
+    class="kanban"
+    data-testid="kanban-board"
+    @dragover="handleBoardDragOver"
+    @drop="handleBoardDrop"
+  >
     <KanbanColumnComponent
-      v-for="column in activeColumns"
+      v-for="column in renderColumns"
       :key="column.id"
       :column="column"
       :dragging="dragging"
       :drag-over="dragOver"
+      :disable-move-transition="suppressMoveTransition"
       @list-dragover="handleListDragOver(column.id, $event)"
       @list-drop="handleDrop(column.id, undefined, $event)"
       @card-dragstart="handleDragStart(column.id, $event.itemId, $event.event)"

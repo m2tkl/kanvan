@@ -27,6 +27,7 @@ const createDataTransfer = () => ({
 
 const mockRect = (element: Element, { top, height }: { top: number; height: number }) => {
   Object.defineProperty(element, 'getBoundingClientRect', {
+    configurable: true,
     value: () => ({
       top,
       height,
@@ -70,13 +71,13 @@ describe('KanbanBoard', () => {
       throw new Error('Missing drag-and-drop targets')
     }
 
-    mockRect(first, { top: 0, height: 100 })
-    mockRect(target, { top: 120, height: 100 })
+    mockRect(first, { top: 0, height: 10 })
+    mockRect(target, { top: 200, height: 10 })
     const dataTransfer = createDataTransfer()
 
     await fireEvent.dragStart(source, { dataTransfer })
-    await fireEvent.dragOver(list, { dataTransfer, clientY: 250 })
-    await fireEvent.drop(list, { dataTransfer })
+    await fireEvent.dragOver(list, { dataTransfer, clientY: 205 })
+    await fireEvent.drop(list, { dataTransfer, clientY: 205 })
     await nextTick()
 
     const updates = emitted()['update:modelValue']
@@ -84,6 +85,27 @@ describe('KanbanBoard', () => {
     const latest = updates?.[updates.length - 1]?.[0]
     const todoColumn = latest?.find((column: { id: string }) => column.id === 'todo')
     expect(todoColumn.items.map((item: { id: string }) => item.id)).toEqual(['b', 'a'])
+  })
+
+  it('does not render a placeholder until a move is possible', async () => {
+    const columns = createColumns()
+    render(KanbanBoard, { props: { columns } })
+    const source = screen.getByText('Research').closest('li')
+    if (!source) {
+      throw new Error('Missing drag-and-drop targets')
+    }
+
+    const dataTransfer = createDataTransfer()
+    await fireEvent.dragStart(source, { dataTransfer })
+    await nextTick()
+
+    expect(document.querySelectorAll('.kanban-card--placeholder')).toHaveLength(0)
+
+    await fireEvent.dragEnd(source, { dataTransfer })
+    await nextTick()
+
+    expect(document.querySelectorAll('.kanban-card--placeholder')).toHaveLength(0)
+    expect(screen.getByText('Research')).toBeInTheDocument()
   })
 
   it('moves a card across columns', async () => {
