@@ -1,11 +1,13 @@
-export type KanbanItem = {
+export type KanbanItem<Extra extends Record<string, unknown> = Record<string, unknown>> = {
   id: string
   title: string
   description?: string
-}
+} & Extra
 
-export type KanbanColumn = {
+export type KanbanColumn<
+  Extra extends Record<string, unknown> = Record<string, unknown>,
+> = {
   id: string
   title: string
-  items: KanbanItem[]
+  items: KanbanItem<Extra>[]
 }

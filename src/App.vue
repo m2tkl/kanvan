@@ -3,6 +3,11 @@ import { computed, ref } from 'vue'
 import { KanbanBoard } from './lib'
 import type { KanbanColumn } from './lib/types'
 
+type WorkItemMeta = {
+  priority: 'low' | 'medium' | 'high'
+  owner: string
+}
+
 const createColumns = (): KanbanColumn[] => [
   {
     id: 'backlog',
@@ -42,14 +47,57 @@ const customColumns = ref(
     column.id === 'progress' ? { ...column, items: [] } : column,
   ),
 )
+const genericColumns = ref<KanbanColumn<WorkItemMeta>[]>([
+  {
+    id: 'triage',
+    title: 'Triage',
+    items: [
+      {
+        id: 'g-1',
+        title: 'Review onboarding feedback',
+        description: 'Highlight top friction points',
+        priority: 'high',
+        owner: 'Casey',
+      },
+      {
+        id: 'g-2',
+        title: 'Audit analytics naming',
+        description: 'Align event taxonomy',
+        priority: 'medium',
+        owner: 'Jordan',
+      },
+    ],
+  },
+  {
+    id: 'build',
+    title: 'Build',
+    items: [
+      {
+        id: 'g-3',
+        title: 'Design QA checklist',
+        description: 'Define visual baselines',
+        priority: 'low',
+        owner: 'Morgan',
+      },
+    ],
+  },
+  {
+    id: 'ship',
+    title: 'Ship',
+    items: [],
+  },
+])
 const views = [
   { id: 'default', label: 'Default board' },
   { id: 'custom', label: 'Slot customized board' },
+  { id: 'generic', label: 'Generic typed board' },
 ] as const
 const activeView = ref<(typeof views)[number]['id']>('default')
-const activeColumns = computed(() =>
-  activeView.value === 'custom' ? customColumns.value : defaultColumns.value,
-)
+const activeColumns = computed(() => {
+  if (activeView.value === 'custom') return customColumns.value
+  if (activeView.value === 'generic') return genericColumns.value
+  return defaultColumns.value
+})
 const eventLog = ref<
   Array<{
     id: string
@@ -160,7 +208,7 @@ const toggleSidebar = () => {
         @drag:end="handleDragEnd"
       />
       <KanbanBoard
-        v-else
+        v-else-if="activeView === 'custom'"
         class="demo__board"
         v-model="customColumns"
         :columns="customColumns"
@@ -201,6 +249,47 @@ const toggleSidebar = () => {
           <button class="custom-footer" type="button">
             Add card to {{ column.title }}
           </button>
+        </template>
+      </KanbanBoard>
+      <KanbanBoard
+        v-else
+        class="demo__board"
+        v-model="genericColumns"
+        :columns="genericColumns"
+        :debug="true"
+        @drag:start="handleDragStart"
+        @drag:over="handleDragOver"
+        @drag:drop="handleDragDrop"
+        @drag:end="handleDragEnd"
+      >
+        <template #column-header="{ column }">
+          <div class="generic-header">
+            <div>
+              <p class="generic-header__eyebrow">Workstream</p>
+              <h2 class="generic-header__title">{{ column.title }}</h2>
+            </div>
+            <span class="generic-header__count">{{ column.items.length }}</span>
+          </div>
+        </template>
+        <template #card="{ item }">
+          <article class="generic-card">
+            <div class="generic-card__meta">
+              <span class="generic-card__priority" :data-level="item.priority">
+                {{ item.priority }}
+              </span>
+              <span class="generic-card__owner">{{ item.owner }}</span>
+            </div>
+            <h3 class="generic-card__title">{{ item.title }}</h3>
+            <p v-if="item.description" class="generic-card__description">
+              {{ item.description }}
+            </p>
+          </article>
+        </template>
+        <template #empty-column="{ column }">
+          <div class="generic-empty">
+            <strong>{{ column.title }}</strong>
+            <span>Drop a work item here.</span>
+          </div>
         </template>
       </KanbanBoard>
     </div>
@@ -539,5 +628,97 @@ const toggleSidebar = () => {
   border-radius: 10px;
   cursor: pointer;
   font-weight: 600;
+}
+
+.generic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.generic-header__eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #6a645c;
+}
+
+.generic-header__title {
+  margin: 4px 0 0;
+  font-size: 1.05rem;
+}
+
+.generic-header__count {
+  background: #1c1b1f;
+  color: #fff4da;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.generic-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  box-shadow: inset 0 0 0 1px rgba(28, 27, 31, 0.08);
+}
+
+.generic-card__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #6a645c;
+}
+
+.generic-card__priority {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f4efe6;
+  color: #1c1b1f;
+  font-weight: 600;
+}
+
+.generic-card__priority[data-level='high'] {
+  background: #ffe2c7;
+  color: #6b2b00;
+}
+
+.generic-card__priority[data-level='medium'] {
+  background: #fff4da;
+  color: #7a5500;
+}
+
+.generic-card__priority[data-level='low'] {
+  background: #e1f2e3;
+  color: #1a5c2c;
+}
+
+.generic-card__owner {
+  font-weight: 600;
+}
+
+.generic-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.generic-card__description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4b4b4b;
+}
+
+.generic-empty {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: #6a645c;
 }
 </style>
