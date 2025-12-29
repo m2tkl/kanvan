@@ -70,6 +70,7 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
   grid-template-rows: auto 1fr;
   gap: 12px;
   min-height: 260px;
+  height: 100%;
   box-shadow: 0 10px 20px rgba(18, 18, 18, 0.08);
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
@@ -105,7 +106,7 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
   display: grid;
   gap: 10px;
   position: relative;
-  min-height: 280px;
+  min-height: 0;
   overflow-y: auto;
   overflow-anchor: none;
   align-content: start;

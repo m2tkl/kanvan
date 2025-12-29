@@ -41,6 +41,9 @@ const columns = ref([
 .demo {
   display: grid;
   gap: 24px;
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto 1fr;
 }
 
 .demo__header {

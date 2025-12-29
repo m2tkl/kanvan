@@ -553,5 +553,7 @@ const handleBoardDragOver = (event: DragEvent) => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+  min-height: 100%;
+  align-items: stretch;
 }
 </style>
