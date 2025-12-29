@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { KanbanItem } from '../types'
 
 const props = defineProps<{
   item: KanbanItem
   isDragging: boolean
   isPlaceholder: boolean
+  placeholderHeight?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -28,12 +30,21 @@ const handleDrop = (event: DragEvent) => {
   if (props.isPlaceholder) return
   emit('drop', event)
 }
+
+const placeholderStyle = computed(() => {
+  if (!props.isPlaceholder || !props.placeholderHeight) return undefined
+  return {
+    height: `${props.placeholderHeight}px`,
+    minHeight: `${props.placeholderHeight}px`,
+  }
+})
 </script>
 
 <template>
   <li
     class="kanban-card"
     :class="{ 'kanban-card--placeholder': props.isPlaceholder }"
+    :style="placeholderStyle"
     :data-dragging="props.isDragging"
     :data-item-id="props.item.id"
     :data-placeholder="props.isPlaceholder"
@@ -44,7 +55,7 @@ const handleDrop = (event: DragEvent) => {
     @dragend="emit('dragend')"
   >
     <template v-if="props.isPlaceholder">
-      <div class="kanban-card__skeleton" aria-hidden="true"></div>
+      <slot name="placeholder" :item="props.item" />
     </template>
     <template v-else>
       <slot
@@ -52,10 +63,12 @@ const handleDrop = (event: DragEvent) => {
         :is-dragging="props.isDragging"
         :is-placeholder="props.isPlaceholder"
       >
-        <p class="kanban-card__title">{{ props.item.title }}</p>
-        <p v-if="props.item.description" class="kanban-card__description">
-          {{ props.item.description }}
-        </p>
+        <div class="kanban-card__body">
+          <p class="kanban-card__title">{{ props.item.title }}</p>
+          <p v-if="props.item.description" class="kanban-card__description">
+            {{ props.item.description }}
+          </p>
+        </div>
       </slot>
     </template>
   </li>
@@ -63,17 +76,12 @@ const handleDrop = (event: DragEvent) => {
 
 <style scoped>
 .kanban-card {
-  --kanban-card-height: 84px;
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: inset 0 0 0 1px rgba(28, 27, 31, 0.08);
   cursor: grab;
   transition: box-shadow 120ms ease, opacity 120ms ease;
   position: relative;
   will-change: transform;
-  height: var(--kanban-card-height);
-  overflow: hidden;
+  min-height: 0;
+  overflow: visible;
 }
 
 .kanban-card[data-dragging='true'] {
@@ -85,27 +93,20 @@ const handleDrop = (event: DragEvent) => {
   background: transparent;
   box-shadow: none;
   border: 1px dashed rgba(28, 27, 31, 0.3);
-  height: var(--kanban-card-height);
+  min-height: 84px;
+  border-radius: 12px;
   cursor: default;
   transition: none;
   pointer-events: none;
 }
 
-.kanban-card__skeleton {
-  height: 12px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #e7e0d4 0%, #f6efe3 50%, #e7e0d4 100%);
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.2s ease-in-out infinite;
-}
-
-@keyframes skeleton-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+.kanban-card__body {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: inset 0 0 0 1px rgba(28, 27, 31, 0.08);
+  min-height: 84px;
+  overflow: hidden;
 }
 
 .kanban-card__title {

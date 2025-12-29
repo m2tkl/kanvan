@@ -33,6 +33,7 @@ const dragImageElement = ref<HTMLElement | null>(null)
 let scrollPositions: Map<string, number> | null = null
 const slots = useSlots()
 const scrollFrameId = ref<number | null>(null)
+const placeholderHeight = ref<number | null>(null)
 
 const emitUpdate = (columns: KanbanColumn[]) => {
   emit('update:modelValue', columns)
@@ -61,6 +62,7 @@ const finalizeDrag = (options?: { restoreScroll?: boolean }) => {
   dragging.value = null
   dragOver.value = null
   clearPreview()
+  placeholderHeight.value = null
   if (scrollFrameId.value !== null) {
     cancelAnimationFrame(scrollFrameId.value)
     scrollFrameId.value = null
@@ -304,6 +306,8 @@ const handleDragStart = (
   dragOver.value = null
   clearPreview()
   log('drag:start', { columnId, itemId })
+  const source = event.currentTarget as HTMLElement | null
+  placeholderHeight.value = source?.getBoundingClientRect().height ?? null
   const dataTransfer = event.dataTransfer
   if (!dataTransfer) return
   scrollPositions = new Map<string, number>()
@@ -573,6 +577,7 @@ const handleBoardDragOver = (event: DragEvent) => {
       :dragging="dragging"
       :drag-over="dragOver"
       :disable-move-transition="suppressMoveTransition"
+      :placeholder-height="placeholderHeight"
       @list-dragover="handleListDragOver(column.id, $event)"
       @list-drop="handleDrop(column.id, undefined, $event)"
       @card-dragstart="handleDragStart(column.id, $event.itemId, $event.event)"
@@ -582,6 +587,18 @@ const handleBoardDragOver = (event: DragEvent) => {
     >
       <template v-if="slots.card" #card="slotProps">
         <slot name="card" v-bind="slotProps" />
+      </template>
+      <template v-if="slots.placeholder" #placeholder="slotProps">
+        <slot name="placeholder" v-bind="slotProps" />
+      </template>
+      <template v-if="slots['column-header']" #column-header="slotProps">
+        <slot name="column-header" v-bind="slotProps" />
+      </template>
+      <template v-if="slots['column-footer']" #column-footer="slotProps">
+        <slot name="column-footer" v-bind="slotProps" />
+      </template>
+      <template v-if="slots['empty-column']" #empty-column="slotProps">
+        <slot name="empty-column" v-bind="slotProps" />
       </template>
     </KanbanColumnComponent>
   </section>

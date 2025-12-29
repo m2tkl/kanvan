@@ -10,6 +10,7 @@ const props = defineProps<{
     | { columnId: string; itemId?: string; position?: 'before' | 'after' }
     | null
   disableMoveTransition: boolean
+  placeholderHeight?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -32,8 +33,13 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
 <template>
   <article class="kanban-column" :data-drag-over="isColumnDragOver()">
     <header class="kanban-column__header">
-      <h2 class="kanban-column__title">{{ column.title }}</h2>
-      <span class="kanban-column__count">{{ column.items.length }}</span>
+      <template v-if="slots['column-header']">
+        <slot name="column-header" :column="column" />
+      </template>
+      <template v-else>
+        <h2 class="kanban-column__title">{{ column.title }}</h2>
+        <span class="kanban-column__count">{{ column.items.length }}</span>
+      </template>
     </header>
     <TransitionGroup
       tag="ol"
@@ -54,6 +60,7 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
           :item="item"
           :is-dragging="dragging?.itemId === item.id"
           :is-placeholder="isPlaceholder(item)"
+          :placeholder-height="props.placeholderHeight"
           @dragstart="emit('card-dragstart', { itemId: item.id, event: $event })"
           @dragover="emit('card-dragover', { itemId: item.id, event: $event })"
           @drop="emit('card-drop', { itemId: item.id, event: $event })"
@@ -68,19 +75,37 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
               :is-placeholder="isPlaceholder(item)"
             />
           </template>
+          <template v-if="slots.placeholder" #placeholder>
+            <slot name="placeholder" :item="item" :column="column" />
+          </template>
         </KanbanCard>
         <KanbanCard
           v-else
           :item="item"
           :is-dragging="dragging?.itemId === item.id"
           :is-placeholder="isPlaceholder(item)"
+          :placeholder-height="props.placeholderHeight"
           @dragstart="emit('card-dragstart', { itemId: item.id, event: $event })"
           @dragover="emit('card-dragover', { itemId: item.id, event: $event })"
           @drop="emit('card-drop', { itemId: item.id, event: $event })"
           @dragend="emit('card-dragend')"
-        />
+        >
+          <template v-if="slots.placeholder" #placeholder>
+            <slot name="placeholder" :item="item" :column="column" />
+          </template>
+        </KanbanCard>
       </template>
+      <li
+        v-if="slots['empty-column'] && column.items.length === 0"
+        :key="`empty-${column.id}`"
+        class="kanban-column__empty"
+      >
+        <slot name="empty-column" :column="column" />
+      </li>
     </TransitionGroup>
+    <footer v-if="slots['column-footer']" class="kanban-column__footer">
+      <slot name="column-footer" :column="column" />
+    </footer>
   </article>
 </template>
 
@@ -139,6 +164,19 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
 
 .kanban-column__list--lock {
   overflow-y: auto;
+}
+
+.kanban-column__footer {
+  margin-top: 8px;
+}
+
+.kanban-column__empty {
+  border: 1px dashed rgba(28, 27, 31, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  color: #6a645c;
+  font-size: 0.9rem;
 }
 </style>
 
