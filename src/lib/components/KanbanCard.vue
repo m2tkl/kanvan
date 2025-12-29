@@ -47,10 +47,16 @@ const handleDrop = (event: DragEvent) => {
       <div class="kanban-card__skeleton" aria-hidden="true"></div>
     </template>
     <template v-else>
-      <p class="kanban-card__title">{{ props.item.title }}</p>
-      <p v-if="props.item.description" class="kanban-card__description">
-        {{ props.item.description }}
-      </p>
+      <slot
+        :item="props.item"
+        :is-dragging="props.isDragging"
+        :is-placeholder="props.isPlaceholder"
+      >
+        <p class="kanban-card__title">{{ props.item.title }}</p>
+        <p v-if="props.item.description" class="kanban-card__description">
+          {{ props.item.description }}
+        </p>
+      </slot>
     </template>
   </li>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useSlots } from 'vue'
 import type { KanbanColumn } from '../types'
 import KanbanCard from './KanbanCard.vue'
 
@@ -20,6 +21,7 @@ const emit = defineEmits<{
   (event: 'card-dragend'): void
 }>()
 
+const slots = useSlots()
 const isColumnDragOver = () => props.dragOver?.columnId === props.column.id
 const isListDragOver = () =>
   props.dragOver?.columnId === props.column.id && !props.dragOver?.itemId
@@ -46,17 +48,38 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
       @dragover="emit('list-dragover', $event)"
       @drop="emit('list-drop', $event)"
     >
-      <KanbanCard
-        v-for="item in column.items"
-        :key="item.id"
-        :item="item"
-        :is-dragging="dragging?.itemId === item.id"
-        :is-placeholder="isPlaceholder(item)"
-        @dragstart="emit('card-dragstart', { itemId: item.id, event: $event })"
-        @dragover="emit('card-dragover', { itemId: item.id, event: $event })"
-        @drop="emit('card-drop', { itemId: item.id, event: $event })"
-        @dragend="emit('card-dragend')"
-      />
+      <template v-for="item in column.items" :key="item.id">
+        <KanbanCard
+          v-if="slots.card"
+          :item="item"
+          :is-dragging="dragging?.itemId === item.id"
+          :is-placeholder="isPlaceholder(item)"
+          @dragstart="emit('card-dragstart', { itemId: item.id, event: $event })"
+          @dragover="emit('card-dragover', { itemId: item.id, event: $event })"
+          @drop="emit('card-drop', { itemId: item.id, event: $event })"
+          @dragend="emit('card-dragend')"
+        >
+          <template v-if="!isPlaceholder(item)">
+            <slot
+              name="card"
+              :item="item"
+              :column="column"
+              :is-dragging="dragging?.itemId === item.id"
+              :is-placeholder="isPlaceholder(item)"
+            />
+          </template>
+        </KanbanCard>
+        <KanbanCard
+          v-else
+          :item="item"
+          :is-dragging="dragging?.itemId === item.id"
+          :is-placeholder="isPlaceholder(item)"
+          @dragstart="emit('card-dragstart', { itemId: item.id, event: $event })"
+          @dragover="emit('card-dragover', { itemId: item.id, event: $event })"
+          @drop="emit('card-drop', { itemId: item.id, event: $event })"
+          @dragend="emit('card-dragend')"
+        />
+      </template>
     </TransitionGroup>
   </article>
 </template>

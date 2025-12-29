@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useSlots } from 'vue'
 import type { KanbanColumn, KanbanItem } from '../types'
 import KanbanColumnComponent from './KanbanColumn.vue'
 
@@ -31,6 +31,7 @@ const dragOver = ref<{
 const suppressMoveTransition = ref(false)
 const dragImageElement = ref<HTMLElement | null>(null)
 let scrollPositions: Map<string, number> | null = null
+const slots = useSlots()
 
 const emitUpdate = (columns: KanbanColumn[]) => {
   emit('update:modelValue', columns)
@@ -544,7 +545,11 @@ const handleBoardDragOver = (event: DragEvent) => {
       @card-dragover="handleItemDragOver(column.id, $event.itemId, $event.event)"
       @card-drop="handleDrop(column.id, $event.itemId, $event.event)"
       @card-dragend="handleDragEnd"
-    />
+    >
+      <template v-if="slots.card" #card="slotProps">
+        <slot name="card" v-bind="slotProps" />
+      </template>
+    </KanbanColumnComponent>
   </section>
 </template>
 
