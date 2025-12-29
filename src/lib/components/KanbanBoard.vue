@@ -12,6 +12,22 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:modelValue', value: KanbanColumn[]): void
   (event: 'update:columns', value: KanbanColumn[]): void
+  (event: 'drag:start', payload: { columnId: string; itemId: string }): void
+  (
+    event: 'drag:over',
+    payload: { columnId: string; itemId?: string; position?: 'before' | 'after' },
+  ): void
+  (
+    event: 'drag:drop',
+    payload: {
+      from: { columnId: string; itemId: string }
+      to: { columnId: string; beforeItemId?: string }
+    },
+  ): void
+  (
+    event: 'drag:end',
+    payload: { columnId: string; itemId: string; reason: 'drop' | 'cancel' },
+  ): void
 }>()
 
 const activeColumns = computed(() => props.modelValue ?? props.columns)
@@ -54,10 +70,18 @@ const log = (...args: unknown[]) => {
   console.log('[KanbanBoard]', ...args)
 }
 
-const finalizeDrag = (options?: { restoreScroll?: boolean }) => {
+const finalizeDrag = (options?: { restoreScroll?: boolean; reason?: 'drop' | 'cancel' }) => {
+  const currentDrag = dragging.value
   if (dragImageElement.value) {
     dragImageElement.value.remove()
     dragImageElement.value = null
+  }
+  if (currentDrag) {
+    emit('drag:end', {
+      columnId: currentDrag.columnId,
+      itemId: currentDrag.itemId,
+      reason: options?.reason ?? 'cancel',
+    })
   }
   dragging.value = null
   dragOver.value = null
@@ -112,6 +136,10 @@ const applyDrop = (
     from: dragging.value,
     to: { columnId, beforeItemId },
   })
+  emit('drag:drop', {
+    from: { ...dragging.value },
+    to: { columnId, beforeItemId },
+  })
 
   const nextColumns = moveItem(
     activeColumns.value,
@@ -121,7 +149,7 @@ const applyDrop = (
     beforeItemId,
   )
   emitUpdate(nextColumns)
-  finalizeDrag({ restoreScroll: false })
+  finalizeDrag({ restoreScroll: false, reason: 'drop' })
   if (isSameColumn) {
     disableMoveTransition()
   }
@@ -306,6 +334,7 @@ const handleDragStart = (
   dragOver.value = null
   clearPreview()
   log('drag:start', { columnId, itemId })
+  emit('drag:start', { columnId, itemId })
   const source = event.currentTarget as HTMLElement | null
   placeholderHeight.value = source?.getBoundingClientRect().height ?? null
   const dataTransfer = event.dataTransfer
@@ -416,6 +445,7 @@ const updateDropIndicator = (
   ) {
     dragOver.value = { columnId, itemId, position }
     log('drag:over', { columnId, itemId, position })
+    emit('drag:over', { columnId, itemId, position })
   }
 }
 
@@ -442,6 +472,7 @@ const handleListDragOver = (columnId: string, event: DragEvent) => {
     if (shouldMove) {
       dragOver.value = { columnId }
       log('drag:over', { columnId, position: 'end' })
+      emit('drag:over', { columnId })
       previewColumns.value = buildPreviewColumns(
         activeColumns.value,
         dragging.value,

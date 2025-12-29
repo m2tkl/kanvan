@@ -190,4 +190,67 @@ describe('KanbanBoard', () => {
     const doneColumn = latest?.find((column: { id: string }) => column.id === 'done')
     expect(doneColumn.items.some((item: { id: string }) => item.id === 'a')).toBe(true)
   })
+
+  it('emits drag lifecycle events for a drop', async () => {
+    const columns = createColumns()
+    const { emitted } = render(KanbanBoard, { props: { columns } })
+    const source = screen.getByText('Research').closest('li')
+    const target = screen.getByText('Design').closest('li')
+    const list = screen
+      .getByText('Todo')
+      .closest('.kanban-column')
+      ?.querySelector('.kanban-column__list')
+
+    if (!source || !target || !list) {
+      throw new Error('Missing drag-and-drop targets')
+    }
+
+    mockRect(target, { top: 200, height: 10 })
+    const dataTransfer = createDataTransfer()
+
+    await fireEvent.dragStart(source, { dataTransfer })
+    await fireEvent.dragOver(list, { dataTransfer, clientY: 205 })
+    await fireEvent.drop(list, { dataTransfer, clientY: 205 })
+    await nextTick()
+
+    expect(emitted()['drag:start']).toBeTruthy()
+    expect(emitted()['drag:over']).toBeTruthy()
+    expect(emitted()['drag:drop']).toBeTruthy()
+    expect(emitted()['drag:end']).toBeTruthy()
+
+    const drop = emitted()['drag:drop']?.[0]?.[0]
+    expect(drop).toMatchObject({
+      from: { columnId: 'todo', itemId: 'a' },
+      to: { columnId: 'todo' },
+    })
+
+    const end = emitted()['drag:end']?.[0]?.[0]
+    expect(end).toMatchObject({
+      columnId: 'todo',
+      itemId: 'a',
+      reason: 'drop',
+    })
+  })
+
+  it('emits drag end with cancel when dropping outside the board', async () => {
+    const columns = createColumns()
+    const { emitted } = render(KanbanBoard, { props: { columns } })
+    const source = screen.getByText('Research').closest('li')
+
+    if (!source) {
+      throw new Error('Missing drag-and-drop targets')
+    }
+
+    const dataTransfer = createDataTransfer()
+    await fireEvent.dragStart(source, { dataTransfer })
+    await fireEvent.dragEnd(source, { dataTransfer })
+    await nextTick()
+
+    const end = emitted()['drag:end']?.[0]?.[0]
+    expect(end).toMatchObject({
+      columnId: 'todo',
+      itemId: 'a',
+      reason: 'cancel',
+    })
+  })
 })

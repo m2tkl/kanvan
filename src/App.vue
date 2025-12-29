@@ -50,92 +50,197 @@ const activeView = ref<(typeof views)[number]['id']>('default')
 const activeColumns = computed(() =>
   activeView.value === 'custom' ? customColumns.value : defaultColumns.value,
 )
+const eventLog = ref<
+  Array<{
+    id: string
+    type: string
+    timestamp: string
+    payload: string
+  }>
+>([])
+
+const formatPayload = (payload: unknown) =>
+  JSON.stringify(payload, null, 0) ?? ''
+const pushLog = (type: string, payload: unknown) => {
+  eventLog.value.unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type,
+    timestamp: new Date().toLocaleTimeString(),
+    payload: formatPayload(payload),
+  })
+  if (eventLog.value.length > 12) {
+    eventLog.value = eventLog.value.slice(0, 12)
+  }
+}
+
+const handleDragStart = (payload: { columnId: string; itemId: string }) => {
+  pushLog('drag:start', payload)
+}
+
+const handleDragOver = (payload: {
+  columnId: string
+  itemId?: string
+  position?: 'before' | 'after'
+}) => {
+  pushLog('drag:over', payload)
+}
+
+const handleDragDrop = (payload: {
+  from: { columnId: string; itemId: string }
+  to: { columnId: string; beforeItemId?: string }
+}) => {
+  pushLog('drag:drop', payload)
+}
+
+const handleDragEnd = (payload: {
+  columnId: string
+  itemId: string
+  reason: 'drop' | 'cancel'
+}) => {
+  pushLog('drag:end', payload)
+}
+
+const clearLog = () => {
+  eventLog.value = []
+}
+
+const isSidebarOpen = ref(false)
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
 </script>
 
 <template>
-  <main class="demo">
-    <header class="demo__header">
-      <p class="demo__eyebrow">Kanvan Playground</p>
-      <h1 class="demo__title">Kanban Library for Vue</h1>
-      <p class="demo__lead">
-        Use this space to preview components while building the library.
-      </p>
-    </header>
-    <section class="demo__controls">
-      <span class="demo__controls-label">Views</span>
-      <div class="demo__tabs" role="tablist" aria-label="Playground views">
+  <main class="demo" :data-sidebar-open="isSidebarOpen">
+    <div class="demo__app">
+      <header class="demo__header">
+        <p class="demo__eyebrow">Kanvan Playground</p>
+        <h1 class="demo__title">Kanban Library for Vue</h1>
+        <p class="demo__lead">
+          Use this space to preview components while building the library.
+        </p>
+      </header>
+      <section class="demo__controls">
+        <div>
+          <span class="demo__controls-label">Views</span>
+          <div class="demo__tabs" role="tablist" aria-label="Playground views">
+            <button
+              v-for="view in views"
+              :key="view.id"
+              class="demo__tab"
+              type="button"
+              role="tab"
+              :aria-selected="activeView === view.id"
+              :data-active="activeView === view.id"
+              @click="activeView = view.id"
+            >
+              {{ view.label }}
+            </button>
+          </div>
+        </div>
         <button
-          v-for="view in views"
-          :key="view.id"
-          class="demo__tab"
+          class="demo__sidebar-toggle"
           type="button"
-          role="tab"
-          :aria-selected="activeView === view.id"
-          :data-active="activeView === view.id"
-          @click="activeView = view.id"
+          :aria-expanded="isSidebarOpen"
+          @click="toggleSidebar"
         >
-          {{ view.label }}
+          {{ isSidebarOpen ? 'Hide event log' : 'Show event log' }}
         </button>
-      </div>
-    </section>
+      </section>
 
-    <KanbanBoard
-      v-if="activeView === 'default'"
-      class="demo__board"
-      v-model="defaultColumns"
-      :columns="defaultColumns"
-      :debug="true"
-    />
-    <KanbanBoard
-      v-else
-      class="demo__board"
-      v-model="customColumns"
-      :columns="customColumns"
-      :debug="true"
-    >
-      <template #column-header="{ column }">
-        <div class="custom-header">
-          <div>
-            <p class="custom-header__eyebrow">Stage</p>
-            <h2 class="custom-header__title">{{ column.title }}</h2>
+      <KanbanBoard
+        v-if="activeView === 'default'"
+        class="demo__board"
+        v-model="defaultColumns"
+        :columns="defaultColumns"
+        :debug="true"
+        @drag:start="handleDragStart"
+        @drag:over="handleDragOver"
+        @drag:drop="handleDragDrop"
+        @drag:end="handleDragEnd"
+      />
+      <KanbanBoard
+        v-else
+        class="demo__board"
+        v-model="customColumns"
+        :columns="customColumns"
+        :debug="true"
+        @drag:start="handleDragStart"
+        @drag:over="handleDragOver"
+        @drag:drop="handleDragDrop"
+        @drag:end="handleDragEnd"
+      >
+        <template #column-header="{ column }">
+          <div class="custom-header">
+            <div>
+              <p class="custom-header__eyebrow">Stage</p>
+              <h2 class="custom-header__title">{{ column.title }}</h2>
+            </div>
+            <span class="custom-header__badge">{{ column.items.length }}</span>
           </div>
-          <span class="custom-header__badge">{{ column.items.length }}</span>
+        </template>
+        <template #card="{ item, column }">
+          <article class="custom-card">
+            <div class="custom-card__top">
+              <span class="custom-card__pill">{{ column.title }}</span>
+              <span class="custom-card__id">#{{ item.id }}</span>
+            </div>
+            <h3 class="custom-card__title">{{ item.title }}</h3>
+            <p v-if="item.description" class="custom-card__description">
+              {{ item.description }}
+            </p>
+          </article>
+        </template>
+        <template #empty-column="{ column }">
+          <div class="custom-empty">
+            <strong>{{ column.title }}</strong>
+            <span>No cards yet. Drag one here.</span>
+          </div>
+        </template>
+        <template #column-footer="{ column }">
+          <button class="custom-footer" type="button">
+            Add card to {{ column.title }}
+          </button>
+        </template>
+      </KanbanBoard>
+    </div>
+    <aside class="demo__sidebar" aria-label="Event log sidebar">
+      <div class="demo__event-panel">
+        <div class="demo__event-header">
+          <span class="demo__controls-label">Event log</span>
+          <button class="demo__event-clear" type="button" @click="clearLog">
+            Clear
+          </button>
         </div>
-      </template>
-      <template #card="{ item, column }">
-        <article class="custom-card">
-          <div class="custom-card__top">
-            <span class="custom-card__pill">{{ column.title }}</span>
-            <span class="custom-card__id">#{{ item.id }}</span>
-          </div>
-          <h3 class="custom-card__title">{{ item.title }}</h3>
-          <p v-if="item.description" class="custom-card__description">
-            {{ item.description }}
+        <div class="demo__event-list" role="log" aria-live="polite">
+          <p v-if="eventLog.length === 0" class="demo__event-empty">
+            Drag a card to see events.
           </p>
-        </article>
-      </template>
-      <template #empty-column="{ column }">
-        <div class="custom-empty">
-          <strong>{{ column.title }}</strong>
-          <span>No cards yet. Drag one here.</span>
+          <div v-for="entry in eventLog" :key="entry.id" class="demo__event-row">
+            <div class="demo__event-meta">
+              <span class="demo__event-type">{{ entry.type }}</span>
+              <span class="demo__event-time">{{ entry.timestamp }}</span>
+            </div>
+            <pre class="demo__event-payload">{{ entry.payload }}</pre>
+          </div>
         </div>
-      </template>
-      <template #column-footer="{ column }">
-        <button class="custom-footer" type="button">
-          Add card to {{ column.title }}
-        </button>
-      </template>
-    </KanbanBoard>
+      </div>
+    </aside>
   </main>
 </template>
 
 <style scoped>
 .demo {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 0;
   gap: 24px;
   min-height: 0;
   height: 100%;
-  grid-template-rows: auto auto 1fr;
+  width: 100vw;
+}
+
+.demo[data-sidebar-open='true'] {
+  grid-template-columns: minmax(0, 1fr) 420px;
 }
 
 .demo__header {
@@ -148,6 +253,22 @@ const activeColumns = computed(() =>
   align-self: start;
 }
 
+.demo__app {
+  display: grid;
+  gap: 24px;
+  padding: 40px 24px 64px;
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto auto 1fr;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.demo[data-sidebar-open='true'] .demo__app {
+  max-width: none;
+  margin: 0;
+}
 .demo__eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.2em;
@@ -171,8 +292,11 @@ const activeColumns = computed(() =>
 }
 
 .demo__controls {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .demo__controls-label {
@@ -206,6 +330,122 @@ const activeColumns = computed(() =>
   background: #1c1b1f;
   color: #fff4da;
   border-color: #1c1b1f;
+}
+
+.demo__sidebar-toggle {
+  border: 1px solid rgba(28, 27, 31, 0.2);
+  background: #ffffff;
+  color: #1c1b1f;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.demo__sidebar {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 28px 24px;
+  overflow: hidden;
+  background: #f4efe6;
+  border-left: 2px solid rgba(28, 27, 31, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.demo[data-sidebar-open='true'] .demo__sidebar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.demo__event-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: inset 0 0 0 1px rgba(28, 27, 31, 0.08);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.demo__event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.demo__event-clear {
+  border: 1px solid rgba(28, 27, 31, 0.2);
+  background: #ffffff;
+  color: #1c1b1f;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.demo__event-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-height: 0;
+  max-height: none;
+  flex: 1;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.demo__event-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6a645c;
+}
+
+.demo__event-row {
+  background: #fff4da;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(28, 27, 31, 0.08);
+}
+
+.demo__event-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #6a645c;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.demo__event-type {
+  color: #1c1b1f;
+  font-weight: 600;
+}
+
+.demo__event-payload {
+  margin: 0;
+  font-size: 0.8rem;
+  background: #ffffff;
+  padding: 6px 8px;
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .demo__sidebar {
+    width: 100%;
+    padding: 20px;
+  }
 }
 
 .custom-header {
