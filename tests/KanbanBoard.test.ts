@@ -87,6 +87,64 @@ describe('KanbanBoard', () => {
     expect(todoColumn.items.map((item: { id: string }) => item.id)).toEqual(['b', 'a'])
   })
 
+  it('keeps scroll position after a same-column drop', async () => {
+    const columns = createColumns()
+    render(KanbanBoard, { props: { columns } })
+    const source = screen.getByText('Research').closest('li')
+    const target = screen.getByText('Design').closest('li')
+    const list = screen
+      .getByText('Todo')
+      .closest('.kanban-column')
+      ?.querySelector('.kanban-column__list')
+
+    if (!source || !target || !list) {
+      throw new Error('Missing drag-and-drop targets')
+    }
+
+    Object.defineProperty(list, 'scrollHeight', {
+      configurable: true,
+      value: 1000,
+    })
+    Object.defineProperty(list, 'clientHeight', {
+      configurable: true,
+      value: 200,
+    })
+    list.scrollTop = 40
+
+    mockRect(source, { top: 0, height: 10 })
+    mockRect(target, { top: 200, height: 10 })
+    const dataTransfer = createDataTransfer()
+
+    await fireEvent.dragStart(source, { dataTransfer })
+    list.scrollTop = 180
+    await fireEvent.dragOver(list, { dataTransfer, clientY: 205 })
+    await fireEvent.drop(list, { dataTransfer, clientY: 205 })
+    await nextTick()
+
+    expect(list.scrollTop).toBe(180)
+  })
+
+  it('keeps scroll enabled while dragging within the same column', async () => {
+    const columns = createColumns()
+    render(KanbanBoard, { props: { columns } })
+    const source = screen.getByText('Research').closest('li')
+    const list = screen
+      .getByText('Todo')
+      .closest('.kanban-column')
+      ?.querySelector('.kanban-column__list')
+
+    if (!source || !list) {
+      throw new Error('Missing drag-and-drop targets')
+    }
+
+    const dataTransfer = createDataTransfer()
+    await fireEvent.dragStart(source, { dataTransfer })
+    await nextTick()
+
+    expect(list.classList.contains('kanban-column__list--lock')).toBe(true)
+    expect(list.style.overflowY).not.toBe('hidden')
+  })
+
   it('does not render a placeholder until a move is possible', async () => {
     const columns = createColumns()
     render(KanbanBoard, { props: { columns } })

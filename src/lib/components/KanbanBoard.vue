@@ -32,6 +32,7 @@ const suppressMoveTransition = ref(false)
 const dragImageElement = ref<HTMLElement | null>(null)
 let scrollPositions: Map<string, number> | null = null
 const slots = useSlots()
+const scrollFrameId = ref<number | null>(null)
 
 const emitUpdate = (columns: KanbanColumn[]) => {
   emit('update:modelValue', columns)
@@ -52,7 +53,7 @@ const log = (...args: unknown[]) => {
   console.log('[KanbanBoard]', ...args)
 }
 
-const finalizeDrag = () => {
+const finalizeDrag = (options?: { restoreScroll?: boolean }) => {
   if (dragImageElement.value) {
     dragImageElement.value.remove()
     dragImageElement.value = null
@@ -60,7 +61,11 @@ const finalizeDrag = () => {
   dragging.value = null
   dragOver.value = null
   clearPreview()
-  if (scrollPositions) {
+  if (scrollFrameId.value !== null) {
+    cancelAnimationFrame(scrollFrameId.value)
+    scrollFrameId.value = null
+  }
+  if (scrollPositions && options?.restoreScroll !== false) {
     const lists = document.querySelectorAll<HTMLElement>('.kanban-column__list')
     lists.forEach((list) => {
       const columnId = list.dataset.columnId
@@ -114,7 +119,7 @@ const applyDrop = (
     beforeItemId,
   )
   emitUpdate(nextColumns)
-  finalizeDrag()
+  finalizeDrag({ restoreScroll: false })
   if (isSameColumn) {
     disableMoveTransition()
   }
@@ -122,6 +127,7 @@ const applyDrop = (
 
 const registerGlobalDragCleanup = () => {
   const handleDragEnd = () => {
+    if (!dragging.value) return
     window.removeEventListener('dragend', handleDragEnd, true)
     window.removeEventListener('drop', handleDrop, true)
     window.removeEventListener('dragover', handleDragOver, true)
@@ -148,6 +154,30 @@ const registerGlobalDragCleanup = () => {
   window.addEventListener('dragend', handleDragEnd, true)
   window.addEventListener('drop', handleDrop, true)
   window.addEventListener('dragover', handleDragOver, true)
+}
+
+const autoScrollList = (list: HTMLElement, event: DragEvent) => {
+  const rect = list.getBoundingClientRect()
+  const threshold = Math.min(80, rect.height * 0.25)
+  const topDistance = event.clientY - rect.top
+  const bottomDistance = rect.bottom - event.clientY
+  let delta = 0
+  if (topDistance < threshold) {
+    delta = -Math.ceil((threshold - topDistance) / 6)
+  } else if (bottomDistance < threshold) {
+    delta = Math.ceil((threshold - bottomDistance) / 6)
+  }
+  if (!delta) return
+  const nextScrollTop = Math.max(
+    0,
+    Math.min(list.scrollTop + delta, list.scrollHeight - list.clientHeight),
+  )
+  if (nextScrollTop === list.scrollTop) return
+  if (scrollFrameId.value !== null) return
+  scrollFrameId.value = requestAnimationFrame(() => {
+    list.scrollTop = nextScrollTop
+    scrollFrameId.value = null
+  })
 }
 
 const cloneColumns = (columns: KanbanColumn[]) =>
@@ -391,6 +421,7 @@ const handleListDragOver = (columnId: string, event: DragEvent) => {
   if (!dragging.value) return
 
   const list = event.currentTarget as HTMLElement
+  autoScrollList(list, event)
   const items = Array.from(list.querySelectorAll<HTMLElement>('[data-item-id]')).filter(
     (item) =>
       item.dataset.itemId !== dragging.value?.itemId &&
@@ -460,6 +491,8 @@ const handleItemDragOver = (
   event.preventDefault()
   event.dataTransfer && (event.dataTransfer.dropEffect = 'move')
   const target = event.currentTarget as HTMLElement
+  const list = target.closest<HTMLElement>('.kanban-column__list')
+  if (list) autoScrollList(list, event)
   const bounds = target.getBoundingClientRect()
   const position = event.clientY - bounds.top > bounds.height / 2 ? 'after' : 'before'
   const beforeItemId = resolveBeforeItemId(columnId, itemId, position)
@@ -501,6 +534,7 @@ const handleDrop = (
 }
 
 const handleDragEnd = () => {
+  if (!dragging.value) return
   finalizeDrag()
   log('drag:end')
 }

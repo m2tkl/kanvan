@@ -138,7 +138,7 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
 }
 
 .kanban-column__list--lock {
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 </style>
 
