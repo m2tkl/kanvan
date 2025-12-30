@@ -2,6 +2,10 @@
 
 Vue 3 Kanban board library with native drag-and-drop and slot customization. `src/lib` contains the library, and `src/App.vue` is the Playground for manual verification.
 
+## Playground (GitHub Pages)
+
+Demo: <https://m2tkl.github.io/kanvan/>
+
 ## Usage
 
 ```vue
