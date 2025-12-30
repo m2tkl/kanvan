@@ -9,7 +9,8 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, 'src/lib/index.ts'),
       name: 'Kanvan',
-      fileName: 'kanvan',
+      formats: ['es', 'umd'],
+      fileName: (format) => (format === 'es' ? 'kanvan.es.js' : 'kanvan.umd.js'),
     },
     rollupOptions: {
       external: ['vue'],
