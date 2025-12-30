@@ -8,7 +8,6 @@ type EventEntry = {
 
 const props = defineProps<{
   entries: EventEntry[]
-  open: boolean
 }>()
 
 const emit = defineEmits<{
@@ -17,28 +16,26 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <aside class="demo__sidebar" :data-open="props.open" aria-label="Event log sidebar">
-    <div class="demo__event-panel">
-      <div class="demo__event-header">
-        <span class="demo__controls-label">Event log</span>
-        <button class="demo__event-clear" type="button" @click="emit('clear')">
-          Clear
-        </button>
-      </div>
-      <div class="demo__event-list" role="log" aria-live="polite">
-        <p v-if="props.entries.length === 0" class="demo__event-empty">
-          Drag a card to see events.
-        </p>
-        <div v-for="entry in props.entries" :key="entry.id" class="demo__event-row">
-          <div class="demo__event-meta">
-            <span class="demo__event-type">{{ entry.type }}</span>
-            <span class="demo__event-time">{{ entry.timestamp }}</span>
-          </div>
-          <pre class="demo__event-payload">{{ entry.payload }}</pre>
+  <div class="demo__event-panel">
+    <div class="demo__event-header">
+      <span class="demo__controls-label">Event log</span>
+      <button class="demo__event-clear" type="button" @click="emit('clear')">
+        Clear
+      </button>
+    </div>
+    <div class="demo__event-list" role="log" aria-live="polite">
+      <p v-if="props.entries.length === 0" class="demo__event-empty">
+        Drag a card to see events.
+      </p>
+      <div v-for="entry in props.entries" :key="entry.id" class="demo__event-row">
+        <div class="demo__event-meta">
+          <span class="demo__event-type">{{ entry.type }}</span>
+          <span class="demo__event-time">{{ entry.timestamp }}</span>
         </div>
+        <pre class="demo__event-payload">{{ entry.payload }}</pre>
       </div>
     </div>
-  </aside>
+  </div>
 </template>
 
 <style scoped>
@@ -47,24 +44,6 @@ const emit = defineEmits<{
   letter-spacing: 0.2em;
   font-size: 0.7rem;
   color: #6a645c;
-}
-
-.demo__sidebar {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 28px 24px;
-  overflow: hidden;
-  background: #f4efe6;
-  border-left: 2px solid rgba(28, 27, 31, 0.2);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease;
-}
-
-.demo__sidebar[data-open='true'] {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .demo__event-panel {
@@ -146,12 +125,5 @@ const emit = defineEmits<{
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-@media (max-width: 900px) {
-  .demo__sidebar {
-    width: 100%;
-    padding: 20px;
-  }
 }
 </style>

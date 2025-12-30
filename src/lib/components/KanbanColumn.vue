@@ -121,6 +121,8 @@ const isPlaceholder = (item: KanbanColumn['items'][number]) =>
   height: 100%;
   box-shadow: 0 10px 20px rgba(18, 18, 18, 0.08);
   transition: transform 120ms ease, box-shadow 120ms ease;
+  min-width: 280px;
+  flex: 1 0 280px;
 }
 
 .kanban-column[data-drag-over='true'] {

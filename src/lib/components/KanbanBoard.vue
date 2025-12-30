@@ -49,7 +49,9 @@ const dragImageElement = ref<HTMLElement | null>(null)
 let scrollPositions: Map<string, number> | null = null
 const slots = useSlots()
 const scrollFrameId = ref<number | null>(null)
+const boardScrollFrameId = ref<number | null>(null)
 const placeholderHeight = ref<number | null>(null)
+const boardRef = ref<HTMLElement | null>(null)
 
 const emitUpdate = (columns: KanbanColumn[]) => {
   emit('update:modelValue', columns)
@@ -90,6 +92,10 @@ const finalizeDrag = (options?: { restoreScroll?: boolean; reason?: 'drop' | 'ca
   if (scrollFrameId.value !== null) {
     cancelAnimationFrame(scrollFrameId.value)
     scrollFrameId.value = null
+  }
+  if (boardScrollFrameId.value !== null) {
+    cancelAnimationFrame(boardScrollFrameId.value)
+    boardScrollFrameId.value = null
   }
   if (scrollPositions && options?.restoreScroll !== false) {
     const lists = document.querySelectorAll<HTMLElement>('.kanban-column__list')
@@ -207,6 +213,30 @@ const autoScrollList = (list: HTMLElement, event: DragEvent) => {
   scrollFrameId.value = requestAnimationFrame(() => {
     list.scrollTop = nextScrollTop
     scrollFrameId.value = null
+  })
+}
+
+const autoScrollBoard = (event: DragEvent) => {
+  const board = boardRef.value
+  if (!board) return
+  const rect = board.getBoundingClientRect()
+  const threshold = Math.min(100, rect.width * 0.15)
+  const leftDistance = event.clientX - rect.left
+  const rightDistance = rect.right - event.clientX
+  let delta = 0
+  if (leftDistance < threshold) {
+    delta = -Math.ceil((threshold - leftDistance) / 4)
+  } else if (rightDistance < threshold) {
+    delta = Math.ceil((threshold - rightDistance) / 4)
+  }
+  if (!delta) return
+  const maxScrollLeft = board.scrollWidth - board.clientWidth
+  const nextScrollLeft = Math.max(0, Math.min(board.scrollLeft + delta, maxScrollLeft))
+  if (nextScrollLeft === board.scrollLeft) return
+  if (boardScrollFrameId.value !== null) return
+  boardScrollFrameId.value = requestAnimationFrame(() => {
+    board.scrollLeft = nextScrollLeft
+    boardScrollFrameId.value = null
   })
 }
 
@@ -454,6 +484,7 @@ const handleListDragOver = (columnId: string, event: DragEvent) => {
   event.dataTransfer && (event.dataTransfer.dropEffect = 'move')
   if (!dragging.value) return
 
+  autoScrollBoard(event)
   const list = event.currentTarget as HTMLElement
   autoScrollList(list, event)
   const items = Array.from(list.querySelectorAll<HTMLElement>('[data-item-id]')).filter(
@@ -526,6 +557,7 @@ const handleItemDragOver = (
   event.preventDefault()
   event.dataTransfer && (event.dataTransfer.dropEffect = 'move')
   const target = event.currentTarget as HTMLElement
+  autoScrollBoard(event)
   const list = target.closest<HTMLElement>('.kanban-column__list')
   if (list) autoScrollList(list, event)
   const bounds = target.getBoundingClientRect()
@@ -591,6 +623,7 @@ const handleBoardDragOver = (event: DragEvent) => {
   if (!dragging.value) return
   event.preventDefault()
   event.dataTransfer && (event.dataTransfer.dropEffect = 'move')
+  autoScrollBoard(event)
 }
 </script>
 
@@ -598,6 +631,7 @@ const handleBoardDragOver = (event: DragEvent) => {
   <section
     class="kanban"
     data-testid="kanban-board"
+    ref="boardRef"
     @dragover="handleBoardDragOver"
     @drop="handleBoardDrop"
   >
@@ -637,10 +671,12 @@ const handleBoardDragOver = (event: DragEvent) => {
 
 <style scoped>
 .kanban {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 16px;
   min-height: 100%;
   align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 8px;
 }
 </style>

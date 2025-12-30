@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { KanbanBoard } from '../../lib'
-import type { KanbanColumn } from '../../lib/types'
-import type { WorkItemMeta } from './types'
+import { KanbanBoard } from '../../../../lib'
+import type { KanbanColumn } from '../../../../lib/types'
+import type { WorkItemMeta } from '../fixtures/softwareBoard'
 
 const props = defineProps<{
   modelValue: KanbanColumn<WorkItemMeta>[]
@@ -46,30 +46,30 @@ const model = computed({
     @drag:end="emit('drag:end', $event)"
   >
     <template #column-header="{ column }">
-      <div class="generic-header">
+      <div class="software-header">
         <div>
-          <p class="generic-header__eyebrow">Workstream</p>
-          <h2 class="generic-header__title">{{ column.title }}</h2>
+          <h2 class="software-header__title">{{ column.title }}</h2>
         </div>
-        <span class="generic-header__count">{{ column.items.length }}</span>
+        <span class="software-header__count">{{ column.items.length }}</span>
       </div>
     </template>
     <template #card="{ item }">
-      <article class="generic-card">
-        <div class="generic-card__meta">
-          <span class="generic-card__priority" :data-level="item.priority">
+      <article class="software-card">
+        <div class="software-card__meta">
+          <span class="software-card__priority" :data-level="item.priority">
             {{ item.priority }}
           </span>
-          <span class="generic-card__owner">{{ item.owner }}</span>
+          <span class="software-card__owner">{{ item.owner }}</span>
         </div>
-        <h3 class="generic-card__title">{{ item.title }}</h3>
-        <p v-if="item.description" class="generic-card__description">
+        <h3 class="software-card__title">{{ item.title }}</h3>
+        <p v-if="item.description" class="software-card__description">
           {{ item.description }}
         </p>
+        <span v-if="item.area" class="software-card__area">{{ item.area }}</span>
       </article>
     </template>
     <template #empty-column="{ column }">
-      <div class="generic-empty">
+      <div class="software-empty">
         <strong>{{ column.title }}</strong>
         <span>Drop a work item here.</span>
       </div>
@@ -78,7 +78,7 @@ const model = computed({
 </template>
 
 <style scoped>
-.generic-header {
+.software-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -86,84 +86,85 @@ const model = computed({
   width: 100%;
 }
 
-.generic-header__eyebrow {
-  margin: 0;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: #6a645c;
-}
-
-.generic-header__title {
+.software-header__title {
   margin: 4px 0 0;
   font-size: 1.05rem;
 }
 
-.generic-header__count {
-  background: #1c1b1f;
-  color: #fff4da;
+.software-header__count {
+  background: #0f172a;
+  color: #e2e8f0;
   padding: 4px 12px;
   border-radius: 999px;
   font-size: 0.85rem;
 }
 
-.generic-card {
-  background: #ffffff;
+.software-card {
+  background: #0f172a;
+  color: #e2e8f0;
   border-radius: 14px;
   padding: 12px;
   display: grid;
   gap: 6px;
-  box-shadow: inset 0 0 0 1px rgba(28, 27, 31, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
 }
 
-.generic-card__meta {
+.software-card__meta {
   display: flex;
   justify-content: space-between;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #6a645c;
+  color: rgba(226, 232, 240, 0.7);
 }
 
-.generic-card__priority {
+.software-card__priority {
   padding: 2px 8px;
   border-radius: 999px;
-  background: #f4efe6;
-  color: #1c1b1f;
+  background: rgba(226, 232, 240, 0.16);
+  color: #e2e8f0;
   font-weight: 600;
 }
 
-.generic-card__priority[data-level='high'] {
-  background: #ffe2c7;
-  color: #6b2b00;
+.software-card__priority[data-level='high'] {
+  background: #fecaca;
+  color: #7f1d1d;
 }
 
-.generic-card__priority[data-level='medium'] {
-  background: #fff4da;
-  color: #7a5500;
+.software-card__priority[data-level='medium'] {
+  background: #fde68a;
+  color: #92400e;
 }
 
-.generic-card__priority[data-level='low'] {
-  background: #e1f2e3;
-  color: #1a5c2c;
+.software-card__priority[data-level='low'] {
+  background: #bbf7d0;
+  color: #166534;
 }
 
-.generic-card__owner {
+.software-card__owner {
   font-weight: 600;
 }
 
-.generic-card__title {
+.software-card__title {
   margin: 0;
   font-size: 0.95rem;
 }
 
-.generic-card__description {
+.software-card__description {
   margin: 0;
   font-size: 0.85rem;
-  color: #4b4b4b;
+  color: rgba(226, 232, 240, 0.75);
 }
 
-.generic-empty {
+.software-card__area {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.software-empty {
   display: grid;
   gap: 4px;
   font-size: 0.9rem;

@@ -1,97 +1,33 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { KanbanColumn } from './lib/types'
-import CustomBoardView from './components/playground/CustomBoardView.vue'
-import DefaultBoardView from './components/playground/DefaultBoardView.vue'
-import EventSidebar from './components/playground/EventSidebar.vue'
-import GenericBoardView from './components/playground/GenericBoardView.vue'
-import type { WorkItemMeta } from './components/playground/types'
+import { computed, ref } from 'vue'
+import CampaignBoard from './components/playground/boards/variants/CampaignBoard.vue'
+import SoftwareBoard from './components/playground/boards/variants/SoftwareBoard.vue'
+import TaskBoard from './components/playground/boards/variants/TaskBoard.vue'
+import ProjectBoard from './components/playground/boards/variants/ProjectBoard.vue'
+import EventLog from './components/playground/events/EventLog.vue'
+import Sidebar from './components/playground/app/ui/Sidebar.vue'
+import {
+  usePlaygroundBoards,
+  type PlaygroundViewId,
+} from './components/playground/app/state/usePlaygroundBoards'
 
-const createColumns = (): KanbanColumn[] => [
-  {
-    id: 'backlog',
-    title: 'Backlog',
-    items: [
-      { id: 'task-1', title: 'Design drag-and-drop flow' },
-      { id: 'task-2', title: 'Card editing UI', description: 'Explore modal options' },
-      { id: 'task-5', title: 'Accessibility sweep', description: 'Review focus and aria' },
-      { id: 'task-6', title: 'Card slot API', description: 'Define slot props' },
-      { id: 'task-7', title: 'Edge case checklist' },
-      { id: 'task-8', title: 'Drag cancel UX', description: 'Decide fallback behavior' },
-    ],
-  },
-  {
-    id: 'progress',
-    title: 'In Progress',
-    items: [
-      { id: 'task-3', title: 'Vue 3 testing foundation' },
-      { id: 'task-9', title: 'Column sizing', description: 'Lock header height' },
-      { id: 'task-10', title: 'Placeholder sync', description: 'Cross-column behavior' },
-    ],
-  },
-  {
-    id: 'done',
-    title: 'Done',
-    items: [
-      { id: 'task-4', title: 'Initial design direction' },
-      { id: 'task-11', title: 'Drop indicator', description: 'Replaced by skeleton' },
-      { id: 'task-12', title: 'Preview cleanup' },
-    ],
-  },
-]
-
-const defaultColumns = ref(createColumns())
-const customColumns = ref(
-  createColumns().map((column) =>
-    column.id === 'progress' ? { ...column, items: [] } : column,
-  ),
-)
-const genericColumns = ref<KanbanColumn<WorkItemMeta>[]>([
-  {
-    id: 'triage',
-    title: 'Triage',
-    items: [
-      {
-        id: 'g-1',
-        title: 'Review onboarding feedback',
-        description: 'Highlight top friction points',
-        priority: 'high',
-        owner: 'Casey',
-      },
-      {
-        id: 'g-2',
-        title: 'Audit analytics naming',
-        description: 'Align event taxonomy',
-        priority: 'medium',
-        owner: 'Jordan',
-      },
-    ],
-  },
-  {
-    id: 'build',
-    title: 'Build',
-    items: [
-      {
-        id: 'g-3',
-        title: 'Design QA checklist',
-        description: 'Define visual baselines',
-        priority: 'low',
-        owner: 'Morgan',
-      },
-    ],
-  },
-  {
-    id: 'ship',
-    title: 'Ship',
-    items: [],
-  },
-])
+const boards = usePlaygroundBoards()
 const views = [
-  { id: 'default', label: 'Default board' },
-  { id: 'custom', label: 'Slot customized board' },
-  { id: 'generic', label: 'Generic typed board' },
+  { id: 'task', label: 'Task management', component: TaskBoard },
+  { id: 'campaign', label: 'Campaign planning', component: CampaignBoard },
+  { id: 'software', label: 'Software delivery', component: SoftwareBoard },
+  { id: 'project', label: 'Requirements management', component: ProjectBoard },
 ] as const
-const activeView = ref<(typeof views)[number]['id']>('default')
+const activeView = ref<PlaygroundViewId>('task')
+const activeViewComponent = computed(
+  () => views.find((view) => view.id === activeView.value)?.component ?? TaskBoard,
+)
+const activeBoard = computed({
+  get: () => boards[activeView.value].value,
+  set: (value) => {
+    boards[activeView.value].value = value
+  },
+})
 const eventLog = ref<
   Array<{
     id: string
@@ -190,30 +126,10 @@ const toggleSidebar = () => {
         </button>
       </section>
 
-      <DefaultBoardView
-        v-if="activeView === 'default'"
+      <component
+        :is="activeViewComponent"
         class="demo__board"
-        v-model="defaultColumns"
-        :debug="true"
-        @drag:start="handleDragStart"
-        @drag:over="handleDragOver"
-        @drag:drop="handleDragDrop"
-        @drag:end="handleDragEnd"
-      />
-      <CustomBoardView
-        v-else-if="activeView === 'custom'"
-        class="demo__board"
-        v-model="customColumns"
-        :debug="true"
-        @drag:start="handleDragStart"
-        @drag:over="handleDragOver"
-        @drag:drop="handleDragDrop"
-        @drag:end="handleDragEnd"
-      />
-      <GenericBoardView
-        v-else
-        class="demo__board"
-        v-model="genericColumns"
+        v-model="activeBoard"
         :debug="true"
         @drag:start="handleDragStart"
         @drag:over="handleDragOver"
@@ -221,7 +137,9 @@ const toggleSidebar = () => {
         @drag:end="handleDragEnd"
       />
     </div>
-    <EventSidebar :entries="eventLog" :open="isSidebarOpen" @clear="clearLog" />
+    <Sidebar :open="isSidebarOpen" aria-label="Event log sidebar">
+      <EventLog :entries="eventLog" @clear="clearLog" />
+    </Sidebar>
   </main>
 </template>
 
@@ -229,14 +147,16 @@ const toggleSidebar = () => {
 .demo {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 0;
-  gap: 24px;
+  column-gap: 0;
+  row-gap: 24px;
   min-height: 0;
   height: 100%;
-  width: 100vw;
+  width: 100%;
 }
 
 .demo[data-sidebar-open='true'] {
   grid-template-columns: minmax(0, 1fr) 420px;
+  column-gap: 24px;
 }
 
 .demo__header {
