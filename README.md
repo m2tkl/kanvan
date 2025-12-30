@@ -1,26 +1,94 @@
 # Kanvan
 
-Workspace for building a Vue.js Kanban library. `src/lib` contains the library, and `src/App.vue` is the Playground for manual verification.
+Vue 3 Kanban board library with native drag-and-drop and slot customization. `src/lib` contains the library, and `src/App.vue` is the Playground for manual verification.
 
-## Scripts
+## Usage
 
-- `npm run dev`: run the Playground
-- `npm run test`: run tests
-- `npm run test:watch`: run tests in watch mode
-- `npm run test:coverage`: collect coverage
-- `npm run build`: build types and the library
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import { KanbanBoard } from 'kanvan'
 
-## Recommended IDE Setup
+const columns = ref([
+  {
+    id: 'todo',
+    title: 'Todo',
+    items: [
+      { id: 'a', title: 'Research' },
+      { id: 'b', title: 'Design', description: 'API draft' },
+    ],
+  },
+  {
+    id: 'done',
+    title: 'Done',
+    items: [{ id: 'c', title: 'Initial setup' }],
+  },
+])
+</script>
 
-- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
+<template>
+  <KanbanBoard v-model="columns" :columns="columns" />
+</template>
+```
 
-## Type Support For `.vue` Imports in TS
+## API
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin) to make the TypeScript language service aware of `.vue` types.
+### Props
 
-If the standalone TypeScript plugin doesn't feel fast enough to you, Volar has also implemented a [Take Over Mode](https://github.com/johnsoncodehk/volar/discussions/471#discussioncomment-1361669) that is more performant. You can enable it by the following steps:
+- `columns: KanbanColumn[]` (required) - initial data source for uncontrolled usage.
+- `modelValue?: KanbanColumn[]` - controlled data source (takes precedence when provided).
+- `debug?: boolean` - enable console logs for drag-and-drop.
 
-1. Disable the built-in TypeScript Extension
-   1. Run `Extensions: Show Built-in Extensions` from VSCode's command palette
-   2. Find `TypeScript and JavaScript Language Features`, right click and select `Disable (Workspace)`
-2. Reload the VSCode window by running `Developer: Reload Window` from the command palette.
+### Emits
+
+- `update:modelValue` - emits updated columns after a drop.
+- `update:columns` - mirrors `update:modelValue` for convenience.
+- `drag:start` - payload `{ columnId, itemId }`.
+- `drag:over` - payload `{ columnId, itemId?, position? }`.
+- `drag:drop` - payload `{ from: { columnId, itemId }, to: { columnId, beforeItemId? } }`.
+- `drag:end` - payload `{ columnId, itemId, reason: 'drop' | 'cancel' }`.
+
+### Slots
+
+- `card` - customize card rendering.
+  - `item: KanbanItem`
+  - `column: KanbanColumn`
+  - `isDragging: boolean`
+  - `isPlaceholder: boolean`
+- `column-header` - customize column header.
+  - `column: KanbanColumn`
+- `column-footer` - customize column footer.
+  - `column: KanbanColumn`
+- `empty-column` - shown when a column has no items.
+  - `column: KanbanColumn`
+- `placeholder` - customize the drop placeholder content.
+  - `item: KanbanItem`
+  - `column: KanbanColumn`
+
+### Types
+
+```ts
+export type KanbanItem<Extra extends Record<string, unknown> = Record<string, unknown>> = {
+  id: string
+  title: string
+  description?: string
+} & Extra
+
+export type KanbanColumn<Extra extends Record<string, unknown> = Record<string, unknown>> = {
+  id: string
+  title: string
+  items: KanbanItem<Extra>[]
+}
+```
+
+TypeScript users can extend item metadata via the `Extra` generic, but this is optional.
+
+### Behavior
+
+- Cards are moved with native HTML5 drag-and-drop.
+- Placeholder height matches the dragged card size.
+- Columns have a minimum width and the board scrolls horizontally when constrained.
+
+## License
+
+MIT
