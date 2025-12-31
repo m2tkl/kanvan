@@ -25,7 +25,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/kanvan.es.js",
       "require": "./dist/kanvan.umd.js"
-    }
+    },
+    "./dist/style.css": "./dist/style.css"
   },
   "files": [
     "dist"
